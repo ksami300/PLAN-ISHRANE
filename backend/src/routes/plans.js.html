@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aplikacija za ishranu — Planer</title>
+
+<!-- jsPDF CDN za PDF izvoz -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --accent:#7dd3fc;
+    --muted:#9aa6b2;
+    --glass: rgba(255,255,255,0.03);
+    --success:#10b981;
+    --danger:#ef4444;
+    --font-sans: "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:var(--font-sans);
+    background: linear-gradient(180deg,#071023 0%, #0b1220 100%);
+    color:#e6eef6;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    padding:22px;
+  }
+  .container{
+    max-width:1100px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns: 1fr 420px;
+    gap:22px;
+    align-items:start;
+  }
+  header{
+    grid-column:1/-1;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-bottom:8px;
+  }
+  h1{margin:0;font-size:20px}
+  p.lead{margin:0;color:var(--muted);font-size:13px}
+
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:12px;
+    padding:18px;
+    box-shadow: 0 6px 20px rgba(2,6,23,0.6);
+    border:1px solid rgba(255,255,255,0.03);
+  }
+
+  form .row{
+    display:flex;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  input[type="text"], input[type="number"], select{
+    width:100%;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.04);
+    background:var(--glass);
+    color:inherit;
+    outline:none;
+    font-size:14px;
+  }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 12px;
+    border-radius:10px;
+    cursor:pointer;
+    border: none;
+    background:linear-gradient(90deg,var(--accent), #60a5fa);
+    color:#04202a;
+    font-weight:700;
+  }
+  .btn-ghost{
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.06);
+    color:var(--muted);
+    padding:8px 10px;
+    border-radius:8px;
+  }
+  .muted{color:var(--muted);font-size:13px}
+
+  .result-box{margin-top:12px;background:rgba(255,255,255,0.01);padding:12px;border-radius:8px}
+  .flex{display:flex;gap:10px;align-items:center}
+  .pill{background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:8px;font-weight:600}
+
+  /* Plan viewer */
+  .plan-day{border-radius:8px;padding:10px;margin-bottom:8px;background:rgba(255,255,255,0.015)}
+  .meals li{margin-bottom:6px}
+  .history-list{max-height:520px;overflow:auto;padding-right:6px}
+  .history-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.01)}
+  .small{font-size:12px;color:var(--muted)}
+  .danger{color:var(--danger)}
+
+  footer{grid-column:1/-1;margin-top:14px;color:var(--muted);font-size:13px}
+
+  @media (max-width:980px){
+    .container{grid-template-columns:1fr; padding-bottom:60px}
+  }
+
+  /* tiny helpers */
+  .center{display:flex;align-items:center;justify-content:center}
+  .space-between{display:flex;justify-content:space-between;align-items:center}
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Aplikacija za ishranu — Planer</h1>
+        <p class="lead">Brzo generiši jelovnik zasnovan na potrebnim kalorijama. Lokalno čuvanje i PIN zaključavanje.</p>
+      </div>
+      <div class="center">
+        <div class="muted">Pozdrav, <strong>gospodine Nemanja</strong></div>
+      </div>
+    </header>
+
+    <!-- LEFT: Form + results + plan -->
+    <main class="card" id="mainCard" role="main" aria-labelledby="appTitle">
+      <h2 id="appTitle">Unesite podatke</h2>
+
+      <form id="userForm" autocomplete="off">
+        <div class="row">
+          <div style="flex:1">
+            <label for="name">Ime</label>
+            <input id="name" type="text" placeholder="Vaše ime (opciono)" />
+          </div>
+          <div style="width:120px">
+            <label for="sex">Pol</label>
+            <select id="sex">
+              <option value="male">Muški</option>
+              <option value="female">Ženski</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div style="width:130px">
+            <label for="age">Godine</label>
+            <input id="age" type="number" min="10" max="100" value="25" />
+          </div>
+          <div style="width:140px">
+            <label for="height">Visina (cm)</label>
+            <input id="height" type="number" min="100" max="230" value="175" />
+          </div>
+          <div style="width:140px">
+            <label for="weight">Težina (kg)</label>
+            <input id="weight" type="number" min="30" max="250" value="75" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div style="flex:1">
+            <label for="activity">Nivo aktivnosti</label>
+            <select id="activity">
+              <option value="1.2">Sedentaran (sed) — 1.2</option>
+              <option value="1.375">Lagan — 1.375</option>
+              <option value="1.55" selected>Umeren — 1.55</option>
+              <option value="1.725">Aktivan — 1.725</option>
+              <option value="1.9">Veoma aktivan — 1.9</option>
+            </select>
+          </div>
+          <div style="width:220px">
+            <label for="goal">Cilj</label>
+            <select id="goal">
+              <option value="lose">Mršavljenje</option>
+              <option value="maintain" selected>Održavanje</option>
+              <option value="gain">Porast težine</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div style="flex:1">
+            <label for="dietType">Tip ishrane</label>
+            <select id="dietType">
+              <option value="omnivore" selected>Omnivor</option>
+              <option value="vegetarian">Vegeterijanac</option>
+            </select>
+          </div>
+          <div style="width:170px">
+            <label for="targetRate">Cilj (kg/nedelja)</label>
+            <input id="targetRate" type="number" step="0.1" min="0" max="1" value="0.25" />
+          </div>
+        </div>
+
+        <div style="margin-top:10px" class="space-between">
+          <div>
+            <button id="generateBtn" class="btn" type="button">Generiši plan</button>
+            <button id="resetBtn" class="btn-ghost" type="button">Resetuj formu</button>
+          </div>
+          <div class="muted small">Planovi su sačuvani lokalno (localStorage).</div>
+        </div>
+      </form>
+
+      <div id="calcResult" class="result-box" aria-live="polite" style="display:none">
+        <div class="space-between">
+          <div>
+            <div class="small">BMR (Mifflin-St Jeor)</div>
+            <div style="font-size:20px;font-weight:700" id="bmrVal">—</div>
+          </div>
+          <div>
+            <div class="small">TDEE</div>
+            <div style="font-size:20px;font-weight:700" id="tdeeVal">—</div>
+          </div>
+          <div>
+            <div class="small">Ciljne kalorije</div>
+            <div style="font-size:20px;font-weight:700" id="targetCal">—</div>
+          </div>
+        </div>
+      </div>
+
+      <section id="planSection" style="margin-top:12px; display:none">
+        <div class="space-between" style="margin-bottom:8px">
+          <h3 style="margin:0">Generisani 7-dnevni plan</h3>
+          <div class="flex">
+            <button id="saveBtn" class="btn-ghost">Sačuvaj plan</button>
+            <button id="exportBtn" class="btn" title="Izvezi u PDF">Izvezi u PDF</button>
+          </div>
+        </div>
+
+        <div id="planDays"></div>
+      </section>
+    </main>
+
+    <!-- RIGHT: History + Controls -->
+    <aside class="card" aria-label="Istorija planova">
+      <div class="space-between" style="margin-bottom:10px">
+        <h3 style="margin:0">Istorija planova</h3>
+        <button id="clearAllBtn" class="btn-ghost small">Obriši sve</button>
+      </div>
+
+      <div class="muted small" style="margin-bottom:8px">Sačuvani planovi (kliknite za detalje / otključavanje)</div>
+      <div class="history-list" id="historyList" aria-live="polite"></div>
+    </aside>
+
+    <footer class="muted">
+      Napomena: Ova aplikacija je edukativnog karaktera — za precizan dijetalni plan konsultujte nutricionistu. PDF izvoz koristi jsPDF.
+    </footer>
+  </div>
+
+<script>
+/*
+  APLIKACIJA ZA ISHRANU
+  Autor: Generated for korisnik (gospodine Nemanja)
+  Napomene: koristi localStorage, PIN zaključavanje planova, PDF izvoz (jsPDF).
+*/
+
+/* ========== POMOĆNE FUNKCIJE I BAZA JELA ========== */
+
+const mealDatabase = (function createDb(){
+  // jednostavna baza jela: naziv, tip, kalorije, protein, fat, carbs (po porciji)
+  const db = [
+    {id:1, name:"Zobena kaša sa mlekom i voćem", type:"omnivore", cal:350, p:12, f:8, c:55},
+    {id:2, name:"Omlet (3 jaja) sa povrćem", type:"omnivore", cal:320, p:24, f:22, c:4},
+    {id:3, name:"Sendvič sa piletinom i salatom", type:"omnivore", cal:420, p:30, f:12, c:45},
+    {id:4, name:"Grilovani losos sa krompirom", type:"omnivore", cal:560, p:42, f:28, c:32},
+    {id:5, name:"Salata sa tunjevinom", type:"omnivore", cal:300, p:28, f:14, c:12},
+    {id:6, name:"Rižoto sa povrćem (vegetar)", type:"vegetarian", cal:430, p:10, f:10, c:68},
+    {id:7, name:"Pasta sa sosom od paradajza i pavlakom", type:"omnivore", cal:520, p:16, f:18, c:68},
+    {id:8, name:"Grilovana piletina sa povrćem", type:"omnivore", cal:420, p:46, f:10, c:28},
+    {id:9, name:"Smoothie (banana, jogurt, ovsena)", type:"vegetarian", cal:280, p:8, f:6, c:46},
+    {id:10, name:"Hummus i integralni hleb", type:"vegetarian", cal:360, p:12, f:14, c:44},
+    {id:11, name:"Goveđi burger (bez peciva) sa salatom", type:"omnivore", cal:480, p:35, f:32, c:8},
+    {id:12, name:"Jogurt sa orašastim plodovima i medom", type:"vegetarian", cal:320, p:12, f:14, c:36},
+    {id:13, name:"Salata od leblebija (chickpea) - vegetarian", type:"vegetarian", cal:350, p:14, f:12, c:42},
+    {id:14, name:"Pohovana riba sa povrćem", type:"omnivore", cal:500, p:34, f:24, c:28},
+    {id:15, name:"Piletina i integralni pirinač", type:"omnivore", cal:460, p:40, f:8, c:50}
+  ];
+  return db;
+})();
+
+/* Utility: format number */
+function fmt(num){ return Math.round(num); }
+
+/* BMR: Mifflin-St Jeor */
+function calcBMR({sex, weight, height, age}){
+  try{
+    if(sex === 'male'){
+      return 10*weight + 6.25*height - 5*age + 5;
+    } else {
+      return 10*weight + 6.25*height - 5*age - 161;
+    }
+  }catch(e){
+    console.error("BMR calc error", e);
+    return 0;
+  }
+}
+
+/* TDEE = BMR * activity */
+function calcTDEE(bmr, activity){ return bmr * activity; }
+
+/* target calories based on goal and desired rate */
+function calcTargetCalories(tdee, goal, rateKgPerWeek){
+  // 1 kg ~ 7700 kcal. For safe options, clamp rate
+  const maxSafeRate = 1.0;
+  let rate = Math.min(maxSafeRate, Math.max(0, Number(rateKgPerWeek) || 0));
+  let diff = rate * 7700 / 7; // kcal per day
+  if(goal === 'lose') return Math.max(1000, Math.round(tdee - diff));
+  if(goal === 'gain') return Math.round(tdee + diff);
+  return Math.round(tdee);
+}
+
+/* Generate 7-day meal plan */
+function generateMealPlan({targetCalories, dietType}){
+  // We'll split day into 3 glavna obroka + 2 snack-a approximating calories
+  const plan = [];
+  // weights for meals
+  const portions = [
+    {label:"Doručak", share:0.25},
+    {label:"Užina 1", share:0.1},
+    {label:"Ručak", share:0.30},
+    {label:"Užina 2", share:0.1},
+    {label:"Večera", share:0.25}
+  ];
+
+  // filter meals by diet
+  const choices = mealDatabase.filter(m => (dietType === 'omnivore') ? true : (m.type === 'vegetarian'));
+
+  // safety: if no choices, fallback
+  const pool = choices.length ? choices : mealDatabase;
+
+  for(let day=1; day<=7; day++){
+    const meals = [];
+    // for svaki obrok izaberemo jelo koje ima kalorije blizu target*share ± 30%
+    for(let i=0;i<portions.length;i++){
+      const targetForMeal = targetCalories * portions[i].share;
+      // find candidate with minimal difference
+      let best = null;
+      let bestDiff = Infinity;
+      for(let j=0;j<pool.length;j++){
+        const item = pool[j];
+        const diff = Math.abs(item.cal - targetForMeal);
+        if(diff < bestDiff){
+          best = item;
+          bestDiff = diff;
+        }
+      }
+      // occasionally vary: pick random near best
+      const nearby = pool.filter(x => Math.abs(x.cal - targetForMeal) < Math.max(80, targetForMeal*0.35));
+      const chosen = (nearby.length && Math.random() > 0.3) ? nearby[Math.floor(Math.random()*nearby.length)] : best;
+      meals.push({
+        slot:portions[i].label,
+        item:chosen
+      });
+    }
+    plan.push({day:day, meals});
+  }
+  return plan;
+}
+
+/* ========== LOCAL STORAGE: save/lock/unlock plans ========== */
+const STORAGE_KEY = 'nutri_plans_v1';
+
+/* load all saved plans */
+function loadSavedPlans(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return [];
+    const parsed = JSON.parse(raw);
+    if(Array.isArray(parsed)) return parsed;
+    return [];
+  }catch(e){
+    console.error("loadSavedPlans error", e);
+    return [];
+  }
+}
+
+/* persist plans array */
+function saveAllPlans(plans){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
+}
+
+/* save a single plan (append) */
+function savePlanObject(planObj){
+  const all = loadSavedPlans();
+  all.unshift(planObj); // newest first
+  saveAllPlans(all);
+}
+
+/* delete plan by id */
+function deletePlanById(id){
+  const all = loadSavedPlans();
+  const filtered = all.filter(p => p.id !== id);
+  saveAllPlans(filtered);
+}
+
+/* lock a plan with pin */
+function lockPlan(id, pin){
+  const all = loadSavedPlans();
+  const idx = all.findIndex(p=>p.id===id);
+  if(idx<0) return false;
+  // store hash-like (simple) - not secure, but PIN is local
+  all[idx].locked = true;
+  all[idx].pinHash = btoa(String(pin)); // small obfuscation
+  saveAllPlans(all);
+  return true;
+}
+function unlockPlan(id, pin){
+  const all = loadSavedPlans();
+  const idx = all.findIndex(p=>p.id===id);
+  if(idx<0) return false;
+  if(!all[idx].locked) return true;
+  if(all[idx].pinHash === btoa(String(pin))){
+    all[idx].locked = false;
+    delete all[idx].pinHash;
+    saveAllPlans(all);
+    return true;
+  }
+  return false;
+}
+
+/* generate unique id */
+function uid(){
+  return 'pl_' + Date.now() + '_' + Math.floor(Math.random()*9000+1000);
+}
+
+/* ========== UI BINDING ========== */
+
+const el = {
+  form: document.getElementById('userForm'),
+  generateBtn: document.getElementById('generateBtn'),
+  resetBtn: document.getElementById('resetBtn'),
+  bmrVal: document.getElementById('bmrVal'),
+  tdeeVal: document.getElementById('tdeeVal'),
+  targetCal: document.getElementById('targetCal'),
+  calcResult: document.getElementById('calcResult'),
+  planSection: document.getElementById('planSection'),
+  planDays: document.getElementById('planDays'),
+  saveBtn: document.getElementById('saveBtn'),
+  exportBtn: document.getElementById('exportBtn'),
+  historyList: document.getElementById('historyList'),
+  clearAllBtn: document.getElementById('clearAllBtn')
+};
+
+/* keep current generated plan in memory */
+let currentPlan = null;
+let currentMeta = null;
+
+/* read form values safely */
+function readForm(){
+  const name = document.getElementById('name').value.trim();
+  const sex = document.getElementById('sex').value;
+  const age = Number(document.getElementById('age').value) || 25;
+  const height = Number(document.getElementById('height').value) || 175;
+  const weight = Number(document.getElementById('weight').value) || 75;
+  const activity = Number(document.getElementById('activity').value) || 1.55;
+  const goal = document.getElementById('goal').value;
+  const dietType = document.getElementById('dietType').value;
+  const targetRate = Number(document.getElementById('targetRate').value) || 0;
+
+  return {name, sex, age, height, weight, activity, goal, dietType, targetRate};
+}
+
+/* display results */
+function displayCalcs(bmr, tdee, target){
+  el.bmrVal.textContent = fmt(bmr) + ' kcal';
+  el.tdeeVal.textContent = fmt(tdee) + ' kcal';
+  el.targetCal.textContent = fmt(target) + ' kcal';
+  el.calcResult.style.display = 'block';
+}
+
+/* render plan days */
+function renderPlan(plan){
+  el.planDays.innerHTML = '';
+  for(let i=0;i<plan.length;i++){
+    const d = plan[i];
+    const dayDiv = document.createElement('div');
+    dayDiv.className = 'plan-day';
+    const heading = document.createElement('div');
+    heading.innerHTML = '<strong>Dan ' + d.day + '</strong>';
+    dayDiv.appendChild(heading);
+    const ul = document.createElement('ul');
+    ul.className = 'meals';
+    for(let m=0;m<d.meals.length;m++){
+      const meal = d.meals[m];
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="pill">' + meal.slot + '</span> &nbsp; <strong>' + meal.item.name + '</strong> — <span class="small">' + meal.item.cal + ' kcal</span>';
+      ul.appendChild(li);
+    }
+    dayDiv.appendChild(ul);
+    el.planDays.appendChild(dayDiv);
+  }
+  el.planSection.style.display = 'block';
+}
+
+/* generate button handler */
+el.generateBtn.addEventListener('click', function(){
+  try{
+    const vals = readForm();
+    // simple validation
+    if(vals.age < 10 || vals.age > 100){ alert('Neispravne godine.'); return; }
+    if(vals.height < 100 || vals.height > 230){ alert('Neispravna visina.'); return; }
+    if(vals.weight < 30 || vals.weight > 250){ alert('Neispravna težina.'); return; }
+
+    const bmr = calcBMR(vals);
+    const tdee = calcTDEE(bmr, vals.activity);
+    const target = calcTargetCalories(tdee, vals.goal, vals.targetRate);
+
+    displayCalcs(bmr, tdee, target);
+
+    const plan = generateMealPlan({targetCalories: target, dietType: vals.dietType});
+
+    // attach metadata
+    currentPlan = plan;
+    currentMeta = {
+      id: uid(),
+      name: vals.name || 'Plan ' + (new Date()).toLocaleString(),
+      createdAt: new Date().toISOString(),
+      meta: {bmr:fmt(bmr), tdee:fmt(tdee), target:fmt(target), goal:vals.goal, dietType:vals.dietType, age:vals.age, weight:vals.weight, height:vals.height}
+    };
+
+    renderPlan(plan);
+    // scroll to plan
+    document.getElementById('planSection').scrollIntoView({behavior:'smooth'});
+
+  }catch(err){
+    console.error("generate error", err);
+    alert('Došlo je do greške prilikom generisanja. Pogledajte konzolu.');
+  }
+});
+
+/* reset form */
+el.resetBtn.addEventListener('click', function(){
+  if(!confirm('Resetovati formu na početne vrednosti?')) return;
+  document.getElementById('name').value='';
+  document.getElementById('age').value='25';
+  document.getElementById('height').value='175';
+  document.getElementById('weight').value='75';
+  document.getElementById('activity').value='1.55';
+  document.getElementById('goal').value='maintain';
+  document.getElementById('dietType').value='omnivore';
+  document.getElementById('targetRate').value='0.25';
+  el.calcResult.style.display = 'none';
+  el.planSection.style.display = 'none';
+  currentPlan = null;
+  currentMeta = null;
+});
+
+/* save plan: prompt for optional name and optional PIN (to lock) */
+el.saveBtn.addEventListener('click', function(){
+  try{
+    if(!currentPlan || !currentMeta){ alert('Nema aktivnog generisanog plana. Prvo generišite.'); return; }
+    let planName = prompt('Ime plana (ostavite prazno za podrazumevano):', currentMeta.name) || currentMeta.name;
+    currentMeta.name = planName;
+    // build object to save
+    const planObj = {
+      id: currentMeta.id,
+      name: currentMeta.name,
+      createdAt: currentMeta.createdAt,
+      meta: currentMeta.meta,
+      plan: currentPlan,
+      locked: false
+    };
+    // optionally lock
+    const wantLock = confirm('Da li želite da zaključate ovaj plan PIN-om? (ako potvrdite, unete PIN će biti potreban za brisanje/izmenu)');
+    if(wantLock){
+      let pin = prompt('Unesite PIN (4-8 cifara):','');
+      if(pin){
+        pin = String(pin).trim();
+        if(!/^\d{4,8}$/.test(pin)){
+          alert('PIN mora biti 4 do 8 cifara. Plan će biti sačuvan bez PIN-a.');
+        } else {
+          planObj.locked = true;
+          planObj.pinHash = btoa(pin);
+        }
+      }
+    }
+    savePlanObject(planObj);
+    refreshHistory();
+    alert('Plan sačuvan u istoriji.');
+  }catch(e){
+    console.error("save plan error", e);
+    alert('Greška pri čuvanju plana.');
+  }
+});
+
+/* export to PDF using jsPDF */
+el.exportBtn.addEventListener('click', async function(){
+  try{
+    if(!currentPlan || !currentMeta){ alert('Nema aktivnog generisanog plana.'); return; }
+    // use jsPDF umd
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'mm',format:'a4'});
+    const margin = 14;
+    let y = 18;
+    doc.setFontSize(16);
+    doc.text('Plan ishrane — ' + currentMeta.name, margin, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.text('Kreirano: ' + new Date(currentMeta.createdAt).toLocaleString(), margin, y);
+    y += 8;
+    doc.text('Meta: BMR ' + currentMeta.meta.bmr + ' kcal, TDEE ' + currentMeta.meta.tdee + ' kcal, Cilj ' + currentMeta.meta.target + ' kcal', margin, y);
+    y += 8;
+
+    for(let i=0;i<currentPlan.length;i++){
+      const d = currentPlan[i];
+      if(y > 270){ doc.addPage(); y = 18; }
+      doc.setFontSize(12);
+      doc.text('Dan ' + d.day, margin, y);
+      y += 6;
+      doc.setFontSize(10);
+      for(let m=0;m<d.meals.length;m++){
+        const meal = d.meals[m];
+        const line = meal.slot + ' — ' + meal.item.name + ' (' + meal.item.cal + ' kcal)';
+        doc.text(line, margin+6, y);
+        y += 5;
+        if(y > 270){ doc.addPage(); y = 18; }
+      }
+      y += 4;
+    }
+
+    doc.save((currentMeta.name || 'plan') + '.pdf');
+  }catch(e){
+    console.error("export error", e);
+    alert('Greška prilikom izveza u PDF. Proverite konzolu.');
+  }
+});
+
+/* ====== HISTORY UI ====== */
+
+function refreshHistory(){
+  try{
+    const plans = loadSavedPlans();
+    el.historyList.innerHTML = '';
+    if(plans.length === 0){
+      el.historyList.innerHTML = '<div class="small muted">Nema sačuvanih planova.</div>';
+      return;
+    }
+    for(let i=0;i<plans.length;i++){
+      const p = plans[i];
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      const left = document.createElement('div');
+      left.innerHTML = '<div style="font-weight:700">' + (p.name || 'Plan') + '</div><div class="small">' + (new Date(p.createdAt)).toLocaleString() + '</div>';
+      const right = document.createElement('div');
+      right.style.display='flex';
+      right.style.gap='8px';
+      // view details
+      const viewBtn = document.createElement('button');
+      viewBtn.className='btn-ghost small';
+      viewBtn.textContent = 'Prikaži';
+      viewBtn.onclick = function(){
+        // if locked -> ask PIN to view
+        if(p.locked){
+          const pin = prompt('Plan je zaključan — unesite PIN za prikaz:','');
+          if(!pin){ alert('PIN nije unet.'); return; }
+          if(p.pinHash !== btoa(pin)){ alert('Pogrešan PIN.'); return; }
+        }
+        // show plan in main area
+        currentPlan = p.plan;
+        currentMeta = {id:p.id, name:p.name, createdAt:p.createdAt, meta:p.meta};
+        displayCalcs(Number(p.meta.bmr), Number(p.meta.tdee), Number(p.meta.target));
+        renderPlan(p.plan);
+        document.getElementById('planSection').scrollIntoView({behavior:'smooth'});
+      };
+
+      const lockBtn = document.createElement('button');
+      lockBtn.className='btn-ghost small';
+      lockBtn.textContent = p.locked ? 'Otključaj' : 'Zaključaj';
+      lockBtn.onclick = function(){
+        if(p.locked){
+          const pin = prompt('Unesite PIN za otključavanje:','');
+          if(!pin) { alert('PIN nije unet.'); return; }
+          if(unlockPlan(p.id, pin)){
+            alert('Plan otključan.');
+            refreshHistory();
+          } else {
+            alert('Pogrešan PIN.');
+          }
+        } else {
+          const pin = prompt('Unesite novi PIN (4-8 cifara):','');
+          if(!pin){ alert('PIN nije unet.'); return; }
+          if(!/^\d{4,8}$/.test(pin)){ alert('PIN mora biti 4 do 8 cifara.'); return; }
+          lockPlan(p.id, pin);
+          alert('Plan zaključan.');
+          refreshHistory();
+        }
+      };
+
+      const exportBtn = document.createElement('button');
+      exportBtn.className='btn small';
+      exportBtn.textContent = 'PDF';
+      exportBtn.onclick = function(){
+        // create temporary currentPlan & export like above
+        currentPlan = p.plan;
+        currentMeta = {id:p.id, name:p.name, createdAt:p.createdAt, meta:p.meta};
+        // if locked, require PIN for export
+        if(p.locked){
+          const pin = prompt('Plan je zaključan — unesite PIN za izvoz:','');
+          if(!pin) { alert('PIN nije unet.'); return; }
+          if(p.pinHash !== btoa(pin)){ alert('Pogrešan PIN.'); return; }
+        }
+        document.getElementById('exportBtn').click(); // reuse export
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.className='btn-ghost small';
+      delBtn.textContent = 'Obriši';
+      delBtn.onclick = function(){
+        // if locked -> must enter PIN
+        if(p.locked){
+          const pin = prompt('Plan je zaključan — unesite PIN za brisanje:','');
+          if(!pin) { alert('PIN nije unet.'); return; }
+          if(p.pinHash !== btoa(pin)){ alert('Pogrešan PIN.'); return; }
+        }
+        if(confirm('Da li želite da obrišete ovaj plan?')) {
+          deletePlanById(p.id);
+          refreshHistory();
+        }
+      };
+
+      right.appendChild(viewBtn);
+      right.appendChild(lockBtn);
+      right.appendChild(exportBtn);
+      right.appendChild(delBtn);
+
+      item.appendChild(left);
+      item.appendChild(right);
+      el.historyList.appendChild(item);
+    }
+  }catch(e){
+    console.error("refreshHistory error", e);
+    el.historyList.innerHTML = '<div class="small">Greška pri učitavanju istorije.</div>';
+  }
+}
+
+/* clear all saved plans */
+el.clearAllBtn.addEventListener('click', function(){
+  if(!confirm('Obrisati sve sačuvane planove? Ova akcija je nepovratna.')) return;
+  try{
+    localStorage.removeItem(STORAGE_KEY);
+    refreshHistory();
+  }catch(e){
+    console.error("clear all error", e);
+    alert('Greška pri brisanju.');
+  }
+});
+
+/* initial load */
+refreshHistory();
+
+/* small accessibility: enter to generate from form */
+el.form.addEventListener('submit', function(ev){
+  ev.preventDefault();
+  el.generateBtn.click();
+});
+
+/* End of script */
+</script>
+
+</body>
+</html>
