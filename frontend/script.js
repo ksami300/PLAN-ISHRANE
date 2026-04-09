@@ -48,20 +48,26 @@ class NutriForge {
         const exportBtn = document.getElementById('export-btn');
         const paymentBtn = document.getElementById('payment-btn');
 
-        form.addEventListener('submit', (e) => this.handleFormSubmit(e));
-        upgradeBtn.addEventListener('click', () => this.showEmailModal());
-        saveBtn.addEventListener('click', () => this.savePlan());
-        exportBtn.addEventListener('click', () => this.exportPDF());
-        paymentBtn.addEventListener('click', () => this.handlePayment());
+        if (form) form.addEventListener('submit', (e) => this.handleFormSubmit(e));
+        if (upgradeBtn) upgradeBtn.addEventListener('click', () => this.showEmailModal());
+        if (saveBtn) saveBtn.addEventListener('click', () => this.savePlan());
+        if (exportBtn) exportBtn.addEventListener('click', () => this.exportPDF());
+        if (paymentBtn) paymentBtn.addEventListener('click', () => this.handlePayment());
 
         // Modal events
-        document.getElementById('close-modal').addEventListener('click', () => this.hideEmailModal());
-        document.getElementById('email-modal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) {
-                this.hideEmailModal();
-            }
-        });
-        document.getElementById('email-form').addEventListener('submit', (e) => this.handleEmailSubmit(e));
+        const closeModal = document.getElementById('close-modal');
+        const emailModal = document.getElementById('email-modal');
+        const emailForm = document.getElementById('email-form');
+
+        if (closeModal) closeModal.addEventListener('click', () => this.hideEmailModal());
+        if (emailModal) {
+            emailModal.addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal-overlay')) {
+                    this.hideEmailModal();
+                }
+            });
+        }
+        if (emailForm) emailForm.addEventListener('submit', (e) => this.handleEmailSubmit(e));
 
         // Make scrollToForm globally available
         window.scrollToForm = this.scrollToForm.bind(this);
@@ -82,12 +88,15 @@ class NutriForge {
         const goalSelect = document.getElementById('goal');
         const caloriesInput = document.getElementById('calories');
 
-        goalSelect.addEventListener('change', () => {
-            this.updateCalorieRecommendation(goalSelect.value, caloriesInput);
-        });
+        if (goalSelect) {
+            goalSelect.addEventListener('change', () => {
+                this.updateCalorieRecommendation(goalSelect.value, caloriesInput);
+            });
+        }
     }
 
     validateField(field) {
+        if (!field) return true;
         const value = field.value.trim();
         const errorElement = field.parentNode.querySelector('.field-error') || this.createErrorElement(field);
 
@@ -130,6 +139,7 @@ class NutriForge {
     }
 
     clearFieldError(field) {
+        if (!field) return;
         const errorElement = field.parentNode.querySelector('.field-error');
         if (errorElement) {
             errorElement.style.display = 'none';
@@ -138,6 +148,7 @@ class NutriForge {
     }
 
     updateCalorieRecommendation(goal, caloriesInput) {
+        if (!caloriesInput) return;
         const recommendations = {
             'weight-loss': { min: 1500, max: 2000, default: 1800 },
             'weight-gain': { min: 2500, max: 3500, default: 2800 },
@@ -235,7 +246,7 @@ class NutriForge {
         });
 
         if (!isValid) {
-            alert('Please fill in all required fields correctly.');
+            this.showMessage('error', 'Please fill in all required fields correctly.');
             return;
         }
 
@@ -256,13 +267,18 @@ class NutriForge {
     }
 
     showLoadingSection() {
-        document.getElementById('input-section').classList.add('hidden');
-        document.getElementById('result-section').classList.add('hidden');
-        document.getElementById('payment-section').classList.add('hidden');
-        document.getElementById('loading-section').classList.remove('hidden');
+        const inputSection = document.getElementById('input-section');
+        const resultSection = document.getElementById('result-section');
+        const paymentSection = document.getElementById('payment-section');
+        const loadingSection = document.getElementById('loading-section');
+
+        if (inputSection) inputSection.classList.add('hidden');
+        if (resultSection) resultSection.classList.add('hidden');
+        if (paymentSection) paymentSection.classList.add('hidden');
+        if (loadingSection) loadingSection.classList.remove('hidden');
 
         // Scroll to loading section
-        document.getElementById('loading-section').scrollIntoView({ behavior: 'smooth' });
+        if (loadingSection) loadingSection.scrollIntoView({ behavior: 'smooth' });
     }
 
     simulateAIGeneration(userData) {
@@ -280,10 +296,10 @@ class NutriForge {
 
         const interval = setInterval(() => {
             if (currentStep < steps.length) {
-                loadingText.textContent = steps[currentStep];
+                if (loadingText) loadingText.textContent = steps[currentStep];
                 const percent = Math.round(((currentStep + 1) / steps.length) * 100);
-                progressFill.style.width = `${percent}%`;
-                progressPercent.textContent = `${percent}%`;
+                if (progressFill) progressFill.style.width = `${percent}%`;
+                if (progressPercent) progressPercent.textContent = `${percent}%`;
                 currentStep++;
             } else {
                 clearInterval(interval);
@@ -424,6 +440,14 @@ class NutriForge {
         };
     }
 
+    calculateTotalCalories(meals) {
+        let total = 0;
+        Object.values(meals).forEach(mealArray => {
+            mealArray.forEach(item => total += item.calories);
+        });
+        return total;
+    }
+
     calculateMacros(meals) {
         let totalProtein = 0, totalCarbs = 0, totalFat = 0;
 
@@ -441,28 +465,36 @@ class NutriForge {
     }
 
     displayPlan(plan) {
-        document.getElementById('loading-section').classList.add('hidden');
-        document.getElementById('result-section').classList.remove('hidden');
+        const loadingSection = document.getElementById('loading-section');
+        const resultSection = document.getElementById('result-section');
+
+        if (loadingSection) loadingSection.classList.add('hidden');
+        if (resultSection) resultSection.classList.remove('hidden');
 
         // Add success animation
-        const resultSection = document.getElementById('result-section');
-        resultSection.classList.add('result-appear');
+        if (resultSection) resultSection.classList.add('result-appear');
 
-        document.getElementById('result-title').innerHTML = `<i class="fas fa-check-circle"></i> ${plan.userName}, your AI has finished analyzing you`;
-        document.getElementById('result-subtitle').textContent = `Fine-tuned for ${this.capitalize(plan.goal)} | ${this.capitalize(plan.dietType)} | ${this.capitalize(plan.lifestyle)}`;
-
-        document.getElementById('result-metrics').innerHTML = `
-            <div class="metric-card starting-point">
-                <strong>${plan.calories}</strong>
-                <span>Your daily calorie target</span>
-                <div class="micro-value">Your starting point</div>
-            </div>
-            <div class="metric-card"><strong>${plan.macros.protein}g</strong><span>Protein</span></div>
-            <div class="metric-card"><strong>${plan.totalCalories}</strong><span>Preview calories</span></div>
-        `;
-
+        const resultTitle = document.getElementById('result-title');
+        const resultSubtitle = document.getElementById('result-subtitle');
+        const resultMetrics = document.getElementById('result-metrics');
         const planContent = document.getElementById('plan-content');
-        planContent.innerHTML = this.renderEnhancedPlanHTML(plan);
+
+        if (resultTitle) resultTitle.innerHTML = `<i class="fas fa-check-circle"></i> ${plan.userName}, your AI has finished analyzing you`;
+        if (resultSubtitle) resultSubtitle.textContent = `Fine-tuned for ${this.capitalize(plan.goal)} | ${this.capitalize(plan.dietType)} | ${this.capitalize(plan.lifestyle)}`;
+
+        if (resultMetrics) {
+            resultMetrics.innerHTML = `
+                <div class="metric-card starting-point">
+                    <strong>${plan.calories}</strong>
+                    <span>Your daily calorie target</span>
+                    <div class="micro-value">Your starting point</div>
+                </div>
+                <div class="metric-card"><strong>${plan.macros.protein}g</strong><span>Protein</span></div>
+                <div class="metric-card"><strong>${plan.totalCalories}</strong><span>Preview calories</span></div>
+            `;
+        }
+
+        if (planContent) planContent.innerHTML = this.renderEnhancedPlanHTML(plan);
 
         // Track plan generation
         this.trackEvent('plan_generated', {
@@ -474,7 +506,7 @@ class NutriForge {
         this.updateFunnel('step3_result');
 
         this.applyFreemiumOverlay();
-        document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
+        if (resultSection) resultSection.scrollIntoView({ behavior: 'smooth' });
     }
 
     renderEnhancedPlanHTML(plan) {
@@ -551,12 +583,15 @@ class NutriForge {
     }
 
     applyFreemiumOverlay() {
+        const blurOverlay = document.getElementById('blur-overlay');
+        const exportBtn = document.getElementById('export-btn');
+
         if (!this.isPremium) {
-            document.getElementById('blur-overlay').style.display = 'flex';
-            document.getElementById('export-btn').classList.add('disabled');
+            if (blurOverlay) blurOverlay.style.display = 'flex';
+            if (exportBtn) exportBtn.classList.add('disabled');
         } else {
-            document.getElementById('blur-overlay').style.display = 'none';
-            document.getElementById('export-btn').classList.remove('disabled');
+            if (blurOverlay) blurOverlay.style.display = 'none';
+            if (exportBtn) exportBtn.classList.remove('disabled');
         }
     }
 
@@ -564,26 +599,39 @@ class NutriForge {
         this.trackEvent('unlock_clicked', { source: 'plan_preview' });
         this.updateFunnel('step4_unlock_click');
 
-        document.getElementById('email-modal').classList.remove('hidden');
-        document.getElementById('email-input').focus();
+        const emailModal = document.getElementById('email-modal');
+        const emailInput = document.getElementById('email-input');
+
+        if (emailModal) emailModal.classList.remove('hidden');
+        if (emailInput) emailInput.focus();
     }
 
     hideEmailModal() {
-        document.getElementById('email-modal').classList.add('hidden');
-        document.getElementById('email-error').style.display = 'none';
-        document.getElementById('email-input').value = '';
+        const emailModal = document.getElementById('email-modal');
+        const emailError = document.getElementById('email-error');
+        const emailInput = document.getElementById('email-input');
+
+        if (emailModal) emailModal.classList.add('hidden');
+        if (emailError) emailError.style.display = 'none';
+        if (emailInput) emailInput.value = '';
     }
 
     async handleEmailSubmit(e) {
         e.preventDefault();
-        const email = document.getElementById('email-input').value.trim();
-        const errorElement = document.getElementById('email-error');
+        const emailInput = document.getElementById('email-input');
+        const emailError = document.getElementById('email-error');
+
+        if (!emailInput) return;
+
+        const email = emailInput.value.trim();
 
         // Simple email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            errorElement.textContent = 'Please enter a valid email address';
-            errorElement.style.display = 'block';
+            if (emailError) {
+                emailError.textContent = 'Please enter a valid email address';
+                emailError.style.display = 'block';
+            }
             return;
         }
 
@@ -597,8 +645,10 @@ class NutriForge {
         const result = await this.collectEmail(emailData);
 
         if (!result.success) {
-            errorElement.textContent = 'Failed to submit email. Please try again.';
-            errorElement.style.display = 'block';
+            if (emailError) {
+                emailError.textContent = 'Failed to submit email. Please try again.';
+                emailError.style.display = 'block';
+            }
             return;
         }
 
@@ -624,7 +674,8 @@ class NutriForge {
         this.showSuccessMessage();
 
         // Scroll to show unlocked content
-        document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
+        const resultSection = document.getElementById('result-section');
+        if (resultSection) resultSection.scrollIntoView({ behavior: 'smooth' });
     }
 
     showSuccessMessage() {
@@ -649,38 +700,48 @@ class NutriForge {
     }
 
     showPaymentSection() {
-        document.getElementById('result-section').classList.add('hidden');
-        document.getElementById('payment-section').classList.remove('hidden');
+        const resultSection = document.getElementById('result-section');
+        const paymentSection = document.getElementById('payment-section');
+
+        if (resultSection) resultSection.classList.add('hidden');
+        if (paymentSection) paymentSection.classList.remove('hidden');
 
         // Scroll to payment
-        document.getElementById('payment-section').scrollIntoView({ behavior: 'smooth' });
+        if (paymentSection) paymentSection.scrollIntoView({ behavior: 'smooth' });
     }
 
     handlePayment() {
         // Enhanced payment simulation
-        const email = document.getElementById('payment-email').value;
+        const paymentEmail = document.getElementById('payment-email');
 
-        if (!email) {
-            alert('Please enter your email address.');
+        if (!paymentEmail || !paymentEmail.value) {
+            this.showMessage('error', 'Please enter your email address.');
             return;
         }
 
         // Simulate payment processing
         const paymentBtn = document.getElementById('payment-btn');
-        paymentBtn.textContent = 'Processing...';
-        paymentBtn.disabled = true;
+        if (paymentBtn) {
+            paymentBtn.textContent = 'Processing...';
+            paymentBtn.disabled = true;
+        }
 
         setTimeout(() => {
-            alert('Payment successful! Welcome to Premium. Your PDF is now available.');
+            this.showMessage('success', 'Payment successful! Welcome to Premium. Your PDF is now available.');
 
             this.isPremium = true;
             this.applyFreemiumOverlay();
-            document.getElementById('payment-section').classList.add('hidden');
-            document.getElementById('result-section').classList.remove('hidden');
+            const resultSection = document.getElementById('result-section');
+            const paymentSection = document.getElementById('payment-section');
+
+            if (paymentSection) paymentSection.classList.add('hidden');
+            if (resultSection) resultSection.classList.remove('hidden');
 
             // Reset button
-            paymentBtn.textContent = 'Pay $9.99 Securely';
-            paymentBtn.disabled = false;
+            if (paymentBtn) {
+                paymentBtn.textContent = 'Pay $9.99 Securely';
+                paymentBtn.disabled = false;
+            }
         }, 2000);
     }
 
@@ -692,16 +753,21 @@ class NutriForge {
         savedPlans[planId] = this.currentPlan;
 
         localStorage.setItem('nutriForgePlans', JSON.stringify(savedPlans));
-        alert('Plan saved successfully! You can access it anytime.');
+        this.showMessage('success', 'Plan saved successfully! You can access it anytime.');
     }
 
     exportPDF() {
         if (!this.isPremium || !this.currentPlan) {
-            alert('Please upgrade to premium to export PDF.');
+            this.showMessage('error', 'Please upgrade to premium to export PDF.');
             return;
         }
 
         // Enhanced PDF generation
+        if (typeof window.jspdf === 'undefined') {
+            this.showMessage('error', 'PDF library not loaded. Please refresh and try again.');
+            return;
+        }
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
@@ -763,7 +829,7 @@ class NutriForge {
         const fileName = `nutriForge-plan-${new Date().toISOString().split('T')[0]}.pdf`;
         doc.save(fileName);
 
-        alert('PDF downloaded successfully! Check your downloads folder.');
+        this.showMessage('success', 'PDF downloaded successfully! Check your downloads folder.');
     }
 
     loadSavedPlans() {
@@ -934,7 +1000,7 @@ class NutriForge {
     handleRealPayment() {
         // Placeholder for future Stripe integration
         console.log('Real payment processing would start here');
-        alert('Stripe integration coming soon! For now, this is a demo.');
+        this.showMessage('info', 'Stripe integration coming soon! For now, this is a demo.');
 
         // Future structure:
         // 1. Load Stripe.js
@@ -949,7 +1015,20 @@ class NutriForge {
     }
 
     capitalize(str) {
-        return str.charAt(0).toUpperCase() + str.slice(1).replace(/-/g, ' ');
+        return str ? str.charAt(0).toUpperCase() + str.slice(1).replace(/-/g, ' ') : '';
+    }
+
+    showMessage(type, message) {
+        const msg = document.getElementById('global-message');
+        if (!msg) return;
+
+        msg.className = `global-message ${type}`;
+        msg.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation' : 'info'}-circle"></i> ${message}`;
+        msg.style.display = 'block';
+
+        setTimeout(() => {
+            if (msg) msg.style.display = 'none';
+        }, 5000);
     }
 }
 
@@ -980,6 +1059,32 @@ document.addEventListener('DOMContentLoaded', () => {
             font-size: 0.85rem;
             margin-top: 4px;
             display: none;
+        }
+
+        .global-message {
+            display: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .global-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .global-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .global-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
 
         .macros-summary {
